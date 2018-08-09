@@ -3,6 +3,7 @@
     {
       "name": "webdemo",
       "image": "194783185645.dkr.ecr.ap-southeast-2.amazonaws.com/sean-test:latest",
+      "essential": true,
       "portMappings": [
           {
             "protocol": "tcp",
@@ -10,7 +11,8 @@
             "hostPort": 80
           }
         ],
-      "essential": true
+      "cpu": 100,
+      "memory": 128
     }
   ],
   "family": "nginx-test"
