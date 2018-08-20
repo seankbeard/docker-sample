@@ -199,7 +199,7 @@ Resources:
                   - s3:GetObject
                   - s3:PutObject
                   - s3:GetObjectVersion
-              - Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ImageUrl}
+              - Resource: "*"
                 Effect: Allow
                 Action:
                   - ecr:*
@@ -317,7 +317,7 @@ Resources:
                   Fn::ImportValue:
                     !Join [':', [!Ref 'StackName', 'ClusterName']]
                 ServiceName: !Ref ServiceName
-                FileName: images.json
+                FileName: imagedefinitions.json
               InputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
