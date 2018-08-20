@@ -202,13 +202,8 @@ Resources:
               - Resource: !Sub arn:aws:ecr:${AWS::Region}:${AWS::AccountId}:repository/${ImageUrl}
                 Effect: Allow
                 Action:
-                  - ecr:GetDownloadUrlForLayer
-                  - ecr:BatchGetImage
-                  - ecr:BatchCheckLayerAvailability
-                  - ecr:PutImage
-                  - ecr:InitiateLayerUpload
-                  - ecr:UploadLayerPart
-                  - ecr:CompleteLayerUpload
+                  - ecr:*
+                  - cloudtrail:LookupEvents
 
   CodePipelineServiceRole:
     Type: AWS::IAM::Role
