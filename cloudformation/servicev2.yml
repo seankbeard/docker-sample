@@ -1,5 +1,6 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Deploy a service on AWS Fargate, hosted in a private subnet, but accessible via a public load balancer.
+Description: Deploy a Public service on AWS Fargate
 Parameters:
   StackName:
     Type: String
@@ -33,6 +34,10 @@ Parameters:
     Description: A path on the public load balancer that this service
                  should be connected to. Use * to send all load balancer
                  traffic to this service.
+  PathHealthCheck:
+    Type: String
+    Default: "*"
+    Description: Path to HealthCheck from Load Balancer
   Priority:
     Type: Number
     Default: 1
@@ -48,27 +53,22 @@ Parameters:
     Default: ""
     Description: (Optional) An IAM role to give the service's containers if the code within needs to
                  access other AWS resources like S3 buckets, DynamoDB tables, etc
-
   GitHubUser:
     Type: String
     Description: Your username on GitHub.
-
   GitHubRepo:
     Type: String
     Default: ecs-demo-php-simple-app
     Description: The repo name of the sample service.
-
   GitHubBranch:
     Type: String
     Default: master
     Description: The branch of the repo to continuously deploy.
-
   GitHubToken:
     Type: String
     NoEcho: true
     Description: >
       Token for the user specified above. (https://github.com/settings/tokens)
-
 Conditions:
   HasCustomRole: !Not [ !Equals [!Ref 'Role', ''] ]
 
@@ -115,7 +115,7 @@ Resources:
       LaunchType: FARGATE
       DeploymentConfiguration:
         MaximumPercent: 200
-        MinimumHealthyPercent: 75
+        MinimumHealthyPercent: 50
       DesiredCount: !Ref 'DesiredCount'
       NetworkConfiguration:
         AwsvpcConfiguration:
@@ -142,7 +142,7 @@ Resources:
     Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
       HealthCheckIntervalSeconds: 6
-      HealthCheckPath: /
+      HealthCheckPath: !Ref PathHealthCheck
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
@@ -245,6 +245,8 @@ Resources:
   ArtifactBucket:
     Type: AWS::S3::Bucket
     DeletionPolicy: Retain
+    Properties:
+      BucketName: sandpit-docker-artifacts
 
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
@@ -262,7 +264,7 @@ Resources:
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
             Value: !Ref ImageUrl
-      Name: !Ref AWS::StackName
+      Name: !Ref StackName 
       ServiceRole: !Ref CodeBuildServiceRole
 
   Pipeline:
@@ -321,5 +323,4 @@ Resources:
               InputArtifacts:
                 - Name: BuildOutput
               RunOrder: 1
-
-
+...
