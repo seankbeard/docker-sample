@@ -9,7 +9,7 @@ aws cloudformation create-stack --stack-name ecsserviceteststack --template-body
 ParameterKey=GitHubUser,ParameterValue="seankbeard" \
 ParameterKey=GitHubRepo,ParameterValue="docker-sample" \
 ParameterKey=GitHubBranch,ParameterValue="dev-fork" \
-ParameterKey=GitHubToken,ParameterValue="<token>" \
+ParameterKey=GitHubToken,ParameterValue="" \
 ParameterKey=ServiceName,ParameterValue=Webdemo-Service \
 ParameterKey=ImageUrl,ParameterValue=194783185645.dkr.ecr.ap-southeast-2.amazonaws.com/sean-test \
 ParameterKey=Path,ParameterValue="/webdemo/*" \
@@ -17,3 +17,4 @@ ParameterKey=PathHealthCheck,ParameterValue="/webdemo/index.html" \
 ParameterKey=Priority,ParameterValue=1 \
 ParameterKey=ContainerPort,ParameterValue=80 \
 ParameterKey=DesiredCount,ParameterValue=2
+
