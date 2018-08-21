@@ -2,9 +2,8 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy a Public service on AWS Fargate
 Parameters:
-  StackName:
+  ECSStackName:
     Type: String
-    Default: production
     Description: The name of the parent Fargate networking stack that you created. Necessary
                  to locate and reference resources created by that stack.
   ServiceName:
@@ -69,6 +68,10 @@ Parameters:
     NoEcho: true
     Description: >
       Token for the user specified above. (https://github.com/settings/tokens)
+  ArtifactBucket:
+    Type: String
+    Default: sandpit-docker-artifacts
+    Description: Bucket to store build Artifacts
 Conditions:
   HasCustomRole: !Not [ !Equals [!Ref 'Role', ''] ]
 
@@ -87,7 +90,7 @@ Resources:
         - FARGATE
       ExecutionRoleArn:
         Fn::ImportValue:
-          !Join [':', [!Ref 'StackName', 'ECSTaskExecutionRole']]
+          !Join [':', [!Ref 'ECSStackName', 'ECSTaskExecutionRole']]
       TaskRoleArn:
         Fn::If:
           - 'HasCustomRole'
@@ -111,7 +114,7 @@ Resources:
       ServiceName: !Ref 'ServiceName'
       Cluster:
         Fn::ImportValue:
-          !Join [':', [!Ref 'StackName', 'ClusterName']]
+          !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
       LaunchType: FARGATE
       DeploymentConfiguration:
         MaximumPercent: 200
@@ -121,12 +124,12 @@ Resources:
         AwsvpcConfiguration:
           SecurityGroups:
             - Fn::ImportValue:
-                !Join [':', [!Ref 'StackName', 'FargateContainerSecurityGroup']]
+                !Join [':', [!Ref 'ECSStackName', 'FargateContainerSecurityGroup']]
           Subnets:
             - Fn::ImportValue:
-                !Join [':', [!Ref 'StackName', 'PrivateSubnetOne']]
+                !Join [':', [!Ref 'ECSStackName', 'PrivateSubnetOne']]
             - Fn::ImportValue:
-                !Join [':', [!Ref 'StackName', 'PrivateSubnetTwo']]
+                !Join [':', [!Ref 'ECSStackName', 'PrivateSubnetTwo']]
       TaskDefinition: !Ref 'TaskDefinition'
       LoadBalancers:
         - ContainerName: !Ref 'ServiceName'
@@ -153,7 +156,7 @@ Resources:
       UnhealthyThresholdCount: 2
       VpcId:
         Fn::ImportValue:
-          !Join [':', [!Ref 'StackName', 'VPCId']]
+          !Join [':', [!Ref 'ECSStackName', 'VPCId']]
 
   # Create a rule on the load balancer for routing traffic to the target group
   LoadBalancerRule:
@@ -167,7 +170,7 @@ Resources:
           Values: [!Ref 'Path']
       ListenerArn:
         Fn::ImportValue:
-          !Join [':', [!Ref 'StackName', 'PublicListener']]
+          !Join [':', [!Ref 'ECSStackName', 'PublicListener']]
       Priority: !Ref 'Priority'
 
   CodeBuildServiceRole:
@@ -242,12 +245,6 @@ Resources:
                   - codebuild:BatchGetBuilds
                   - iam:PassRole
 
-  ArtifactBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    Properties:
-      BucketName: sandpit-docker-artifacts
-
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
     Properties:
@@ -264,7 +261,7 @@ Resources:
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
             Value: !Ref ImageUrl
-      Name: !Ref StackName 
+      Name: !Ref AWS::StackName 
       ServiceRole: !Ref CodeBuildServiceRole
 
   Pipeline:
@@ -317,10 +314,10 @@ Resources:
               Configuration:
                 ClusterName:
                   Fn::ImportValue:
-                    !Join [':', [!Ref 'StackName', 'ClusterName']]
+                    !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
                 ServiceName: !Ref ServiceName
                 FileName: imagedefinitions.json
               InputArtifacts:
-                - Name: BuildOutput
+                - Name: AppBuild
               RunOrder: 1
 ...
