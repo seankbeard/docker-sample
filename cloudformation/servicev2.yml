@@ -263,7 +263,7 @@ Resources:
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
             Value: !Ref ImageUrl
-      Name: CODEBUILD_RESOLVED_SOURCE_VERSION 
+      Name: !Ref StackName 
       ServiceRole: !Ref CodeBuildServiceRole
 
   Pipeline:
