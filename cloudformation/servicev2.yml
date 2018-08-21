@@ -304,7 +304,7 @@ Resources:
               InputArtifacts:
                 - Name: App
               OutputArtifacts:
-                - Name: BuildOutput
+                - Name: AppBuild
               RunOrder: 1
         - Name: Deploy
           Actions:
