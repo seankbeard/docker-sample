@@ -86,7 +86,7 @@ Resources:
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Ref 'ServiceName'
+      Family: !Sub ${ServiceName}-app
       Cpu: !Ref 'ContainerCpu'
       Memory: !Ref 'ContainerMemory'
       NetworkMode: awsvpc
@@ -101,7 +101,7 @@ Resources:
           - !Ref 'Role'
           - !Ref "AWS::NoValue"
       ContainerDefinitions:
-        - Name: !Ref 'ServiceName'
+        - Name: !Sub ${ServiceName}-app
           Cpu: !Ref 'ContainerCpu'
           Memory: !Ref 'ContainerMemory'
           Image: !Ref 'ImageUrl'
@@ -115,7 +115,7 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: LoadBalancerRule
     Properties:
-      ServiceName: !Ref 'ServiceName'
+      ServiceName: !Sub ${ServiceName}-service
       Cluster:
         Fn::ImportValue:
           !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
@@ -136,7 +136,7 @@ Resources:
                 !Join [':', [!Ref 'ECSStackName', 'PrivateSubnetTwo']]
       TaskDefinition: !Ref 'TaskDefinition'
       LoadBalancers:
-        - ContainerName: !Ref 'ServiceName'
+        - ContainerName: !Sub ${ServiceName}-app
           ContainerPort: !Ref 'ContainerPort'
           TargetGroupArn: !Ref 'TargetGroup'
 
@@ -154,7 +154,7 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       TargetType: ip
-      Name: !Ref 'ServiceName'
+      Name: !Sub ${ServiceName}-service
       Port: !Ref 'ContainerPort'
       Protocol: HTTP
       UnhealthyThresholdCount: 2
@@ -293,7 +293,7 @@ Resources:
           - Name: IMAGE_FILE
             Value: !Ref ImageFile
           - Name: SERVICE_NAME
-            Value: !Ref ServiceName
+            Value: !Sub ${ServiceName}-app
       Name: !Ref AWS::StackName 
       ServiceRole: !Ref CodeBuildServiceRole
   Pipeline:
@@ -347,7 +347,7 @@ Resources:
                 ClusterName:
                   Fn::ImportValue:
                     !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
-                ServiceName: !Ref ServiceName
+                ServiceName: !Sub ${ServiceName}-service
                 FileName: !Ref ImageFile
               InputArtifacts:
                 - Name: AppBuild
