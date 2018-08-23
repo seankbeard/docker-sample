@@ -72,6 +72,10 @@ Parameters:
     Type: String
     Default: sandpit-docker-artifacts
     Description: Bucket to store build Artifacts
+  ImageFile:
+    Type: String
+    Default: imagedefinitions.json
+    Description: File containing build artifacts info
 Conditions:
   HasCustomRole: !Not [ !Equals [!Ref 'Role', ''] ]
 
@@ -82,7 +86,7 @@ Resources:
   TaskDefinition:
     Type: AWS::ECS::TaskDefinition
     Properties:
-      Family: !Ref 'ServiceName'
+      Family: !Sub ${ServiceName}-app
       Cpu: !Ref 'ContainerCpu'
       Memory: !Ref 'ContainerMemory'
       NetworkMode: awsvpc
@@ -97,7 +101,7 @@ Resources:
           - !Ref 'Role'
           - !Ref "AWS::NoValue"
       ContainerDefinitions:
-        - Name: !Ref 'ServiceName'
+        - Name: !Sub ${ServiceName}-app
           Cpu: !Ref 'ContainerCpu'
           Memory: !Ref 'ContainerMemory'
           Image: !Ref 'ImageUrl'
@@ -111,7 +115,7 @@ Resources:
     Type: AWS::ECS::Service
     DependsOn: LoadBalancerRule
     Properties:
-      ServiceName: !Ref 'ServiceName'
+      ServiceName: !Sub ${ServiceName}-service
       Cluster:
         Fn::ImportValue:
           !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
@@ -132,7 +136,7 @@ Resources:
                 !Join [':', [!Ref 'ECSStackName', 'PrivateSubnetTwo']]
       TaskDefinition: !Ref 'TaskDefinition'
       LoadBalancers:
-        - ContainerName: !Ref 'ServiceName'
+        - ContainerName: !Sub ${ServiceName}-app
           ContainerPort: !Ref 'ContainerPort'
           TargetGroupArn: !Ref 'TargetGroup'
 
@@ -150,7 +154,7 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       TargetType: ip
-      Name: !Ref 'ServiceName'
+      Name: !Sub ${ServiceName}-service
       Port: !Ref 'ContainerPort'
       Protocol: HTTP
       UnhealthyThresholdCount: 2
@@ -252,6 +256,31 @@ Resources:
         Type: CODEPIPELINE
       Source:
         Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo Logging in to Amazon ECR...
+                - $(aws ecr get-login --no-include-email --region ${AWS_DEFAULT_REGION})
+                - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+                - IMAGE_TAG=${COMMIT_HASH:=latest}
+            build:
+              commands:
+                - echo Build started on `date`
+                - echo Building the Docker image...
+                - docker build -t ${REPOSITORY_URI}:latest .
+                - docker tag ${REPOSITORY_URI}:latest ${REPOSITORY_URI}:$IMAGE_TAG
+            post_build:
+              commands:
+                - echo Build completed on `date`
+                - echo Pushing the Docker images...
+                - docker push ${REPOSITORY_URI}:latest
+                - docker push ${REPOSITORY_URI}:$IMAGE_TAG
+                - echo Writing image definitions file...
+                - printf '[{"name":"%s"' ${SERVICE_NAME} > ${IMAGE_FILE}; printf ',"imageUri":"%s"}]' ${REPOSITORY_URI}:${IMAGE_TAG} >> ${IMAGE_FILE}
+          artifacts:
+            files: ${IMAGE_FILE}
       Environment:
         ComputeType: BUILD_GENERAL1_SMALL
         Image: aws/codebuild/docker:17.09.0
@@ -261,9 +290,12 @@ Resources:
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
             Value: !Ref ImageUrl
+          - Name: IMAGE_FILE
+            Value: !Ref ImageFile
+          - Name: SERVICE_NAME
+            Value: !Sub ${ServiceName}-app
       Name: !Ref AWS::StackName 
       ServiceRole: !Ref CodeBuildServiceRole
-
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
@@ -315,8 +347,8 @@ Resources:
                 ClusterName:
                   Fn::ImportValue:
                     !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
-                ServiceName: !Ref ServiceName
-                FileName: imagedefinitions.json
+                ServiceName: !Sub ${ServiceName}-service
+                FileName: !Ref ImageFile
               InputArtifacts:
                 - Name: AppBuild
               RunOrder: 1
