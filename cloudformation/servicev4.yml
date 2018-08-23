@@ -78,36 +78,36 @@ Parameters:
     Description: File containing build artifacts info
 
   # Scaling params
-  DefaultServiceScaleEvaluationPeriods:
+  ServiceScaleEvaluationPeriods:
     Description: The number of periods over which data is compared to the specified threshold
     Type: Number
     Default: 2
     MinValue: 2
 
-  DefaultServiceCpuScaleOutThreshold:
+  ServiceCpuScaleOutThreshold:
     Type: Number
     Description: Average CPU value to trigger auto scaling out
-    Default: 10
+    Default: 50
     MinValue: 0
     MaxValue: 100
     ConstraintDescription: Value must be between 0 and 100
 
-  DefaultServiceCpuScaleInThreshold:
+  ServiceCpuScaleInThreshold:
     Type: Number
     Description: Average CPU value to trigger auto scaling in
-    Default: 5
+    Default: 25
     MinValue: 0
     MaxValue: 100
     ConstraintDescription: Value must be between 0 and 100
 
-  DefaultTaskMinContainerCount:
+  MinCount:
     Type: Number
     Description: Minimum number of containers to run for the service
     Default: 1
     MinValue: 1
     ConstraintDescription: Value must be at least one
 
-  DefaultTaskMaxContainerCount:
+  MaxCount:
     Type: Number
     Description: Maximum number of containers to run for the service when auto scaling out
     Default: 5
@@ -417,8 +417,8 @@ Resources:
   DefaultServiceScalingTarget:
     Type: AWS::ApplicationAutoScaling::ScalableTarget
     Properties:
-      MinCapacity: !Ref DefaultTaskMinContainerCount
-      MaxCapacity: !Ref DefaultTaskMaxContainerCount
+      MinCapacity: !Ref MinCount
+      MaxCapacity: !Ref MaxCount
       ResourceId: !Sub
         - service/${EcsClusterName}/${EcsDefaultServiceName}
         - EcsClusterName:
@@ -465,10 +465,10 @@ Resources:
   DefaulServiceScaleOutAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      EvaluationPeriods: !Ref ServiceScaleEvaluationPeriods
       Statistic: Average
       TreatMissingData: notBreaching
-      Threshold: !Ref DefaultServiceCpuScaleOutThreshold
+      Threshold: !Ref ServiceCpuScaleOutThreshold
       AlarmDescription: Alarm to add capacity if CPU is high
       Period: 60
       AlarmActions:
@@ -490,10 +490,10 @@ Resources:
   DefaulServiceScaleInAlarm:
     Type: AWS::CloudWatch::Alarm
     Properties:
-      EvaluationPeriods: !Ref DefaultServiceScaleEvaluationPeriods
+      EvaluationPeriods: !Ref ServiceScaleEvaluationPeriods
       Statistic: Average
       TreatMissingData: notBreaching
-      Threshold: !Ref DefaultServiceCpuScaleInThreshold
+      Threshold: !Ref ServiceCpuScaleInThreshold
       AlarmDescription: Alarm to reduce capacity if container CPU is low
       Period: 60
       AlarmActions:
