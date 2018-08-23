@@ -1,77 +1,95 @@
 ---
 AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy a Public service on AWS Fargate
+
 Parameters:
+
   ECSStackName:
     Type: String
     Description: The name of the parent Fargate networking stack that you created. Necessary
                  to locate and reference resources created by that stack.
+
   ServiceName:
     Type: String
     Default: nginx
     Description: A name for the service
+
   ImageUrl:
     Type: String
     Default: nginx
     Description: The url of a docker image that contains the application process that
                  will handle the traffic for this service
+
   ContainerPort:
     Type: Number
     Default: 80
     Description: What port number the application inside the docker container is binding to
+
   ContainerCpu:
     Type: Number
     Default: 256
     Description: How much CPU to give the container. 1024 is 1 CPU
+
   ContainerMemory:
     Type: Number
     Default: 512
     Description: How much memory in megabytes to give the container
+
   Path:
     Type: String
     Default: "*"
     Description: A path on the public load balancer that this service
                  should be connected to. Use * to send all load balancer
                  traffic to this service.
+
   PathHealthCheck:
     Type: String
     Default: "*"
     Description: Path to HealthCheck from Load Balancer
+
   Priority:
     Type: Number
     Default: 1
     Description: The priority for the routing rule added to the load balancer.
                  This only applies if your have multiple services which have been
                  assigned to different paths on the load balancer.
+
   DesiredCount:
     Type: Number
     Default: 2
     Description: How many copies of the service task to run
+
   Role:
     Type: String
     Default: ""
     Description: (Optional) An IAM role to give the service's containers if the code within needs to
                  access other AWS resources like S3 buckets, DynamoDB tables, etc
+
   GitHubUser:
     Type: String
     Description: Your username on GitHub.
+
   GitHubRepo:
     Type: String
     Default: ecs-demo-php-simple-app
     Description: The repo name of the sample service.
+
   GitHubBranch:
     Type: String
     Default: master
     Description: The branch of the repo to continuously deploy.
+
   GitHubToken:
     Type: String
     NoEcho: true
     Description: >
       Token for the user specified above. (https://github.com/settings/tokens)
+
   ArtifactBucket:
     Type: String
     Default: sandpit-docker-artifacts
     Description: Bucket to store build Artifacts
+
   ImageFile:
     Type: String
     Default: imagedefinitions.json
@@ -115,6 +133,7 @@ Parameters:
     ConstraintDescription: Value must be at least one
 
 Conditions:
+
   HasCustomRole: !Not [ !Equals [!Ref 'Role', ''] ]
 
 Resources:
@@ -149,6 +168,7 @@ Resources:
   # The service. The service is a resource which allows you to run multiple
   # copies of a type of task, and gather up their logs and metrics, as well
   # as monitor the number of running tasks and replace any that have crashed
+  
   Service:
     Type: AWS::ECS::Service
     DependsOn: LoadBalancerRule
@@ -334,6 +354,7 @@ Resources:
             Value: !Sub ${ServiceName}-app
       Name: !Ref AWS::StackName 
       ServiceRole: !Ref CodeBuildServiceRole
+
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
     Properties:
