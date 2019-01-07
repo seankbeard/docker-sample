@@ -14,11 +14,11 @@ Parameters:
     Default: nginx
     Description: A name for the service
 
-  ImageUrl:
-    Type: String
-    Default: nginx
-    Description: The url of a docker image that contains the application process that
-                 will handle the traffic for this service
+  # ImageUrl:
+  #   Type: String
+  #   Default: nginx
+  #   Description: The url of a docker image that contains the application process that
+  #                will handle the traffic for this service
 
   ContainerPort:
     Type: Number
@@ -161,7 +161,7 @@ Resources:
         - Name: !Sub ${ServiceName}-app
           Cpu: !Ref 'ContainerCpu'
           Memory: !Ref 'ContainerMemory'
-          Image: !Ref 'ImageUrl'
+          Image: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsImageRepository}"
           PortMappings:
             - ContainerPort: !Ref 'ContainerPort'
 
@@ -307,8 +307,50 @@ Resources:
                   - codebuild:BatchGetBuilds
                   - iam:PassRole
 
+  EcsImageRepository:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: "test-repository"
+      RepositoryPolicyText: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: AllowPushPull
+            Effect: Allow
+            Principal: "*"
+            Action: 
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+
+  DeploymentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: businessapps-deployment-demo
+
+  DeploymentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DeploymentBucket
+      PolicyDocument:
+        Statement:
+          -
+            Action: "s3:*"
+            Effect: "Allow"
+            Resource: 
+            - !Join ['', ['arn:aws:s3:::', !Ref 'DeploymentBucket']]
+            - !Join ['', ['arn:aws:s3:::', !Ref 'DeploymentBucket', /*]]
+            Principal: "*"
+
   CodeBuildProject:
     Type: AWS::CodeBuild::Project
+    DependsOn:
+    - DeploymentBucket
+    - DeploymentBucketPolicy
     Properties:
       Artifacts:
         Type: CODEPIPELINE
@@ -347,7 +389,7 @@ Resources:
           - Name: AWS_DEFAULT_REGION
             Value: !Ref AWS::Region
           - Name: REPOSITORY_URI
-            Value: !Ref ImageUrl
+            Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsImageRepository}"
           - Name: IMAGE_FILE
             Value: !Ref ImageFile
           - Name: SERVICE_NAME
@@ -357,11 +399,14 @@ Resources:
 
   Pipeline:
     Type: AWS::CodePipeline::Pipeline
+    DependsOn:
+    - DeploymentBucket
+    - DeploymentBucketPolicy
     Properties:
       RoleArn: !GetAtt CodePipelineServiceRole.Arn
       ArtifactStore:
         Type: S3
-        Location: !Ref ArtifactBucket
+        Location: !Ref DeploymentBucket
       Stages:
         - Name: Source
           Actions:
