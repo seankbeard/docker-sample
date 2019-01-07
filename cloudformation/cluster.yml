@@ -394,7 +394,7 @@ Resources:
               - 'elasticloadbalancing:RegisterInstancesWithLoadBalancer'
               - 'elasticloadbalancing:RegisterTargets'
             Resource: '*'
-
+  
   # This is a role which is used by the ECS tasks themselves.
   ECSTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -422,6 +422,149 @@ Resources:
                 - 'logs:CreateLogStream'
                 - 'logs:PutLogEvents'
               Resource: '*'
+
+  CodeBuildServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codebuild.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ecr:GetAuthorizationToken
+              - Resource: !Sub arn:aws:s3:::${DeploymentBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:GetObjectVersion
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecr:*
+                  - cloudtrail:LookupEvents
+
+  CodePipelineServiceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Path: /
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: codepipeline.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: root
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Resource:
+                  - !Sub arn:aws:s3:::${DeploymentBucket}/*
+                Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketVersioning
+              - Resource: "*"
+                Effect: Allow
+                Action:
+                  - ecs:DescribeServices
+                  - ecs:DescribeTaskDefinition
+                  - ecs:DescribeTasks
+                  - ecs:ListTasks
+                  - ecs:RegisterTaskDefinition
+                  - ecs:UpdateService
+                  - codebuild:StartBuild
+                  - codebuild:BatchGetBuilds
+                  - iam:PassRole
+
+  EcsImageRepository:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: "test-repository"
+      RepositoryPolicyText: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: AllowPushPull
+            Effect: Allow
+            Principal: "*"
+            Action: 
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+
+  DeploymentBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: businessapps-deployment-demo
+
+  DeploymentBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref DeploymentBucket
+      PolicyDocument:
+        Statement:
+          -
+            Action: "s3:*"
+            Effect: "Allow"
+            Resource: 
+            - !Join ['', ['arn:aws:s3:::', !Ref 'DeploymentBucket']]
+            - !Join ['', ['arn:aws:s3:::', !Ref 'DeploymentBucket', /*]]
+            Principal: 
+              AWS: !GetAtt CodePipelineServiceRole.Arn
+          -
+            Action: "s3:*"
+            Effect: "Allow"
+            Resource: 
+            - !Join ['', ['arn:aws:s3:::', !Ref 'DeploymentBucket']]
+            - !Join ['', ['arn:aws:s3:::', !Ref 'DeploymentBucket', /*]]
+            Principal: 
+              AWS: !GetAtt CodeBuildServiceRole.Arn
+
+  ServiceAutoScalingRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: application-autoscaling.amazonaws.com
+            Action: sts:AssumeRole
+      Path: /
+      Policies:
+        - PolicyName: service-autoscaling
+          PolicyDocument:
+            Statement:
+              - Effect: Allow
+                Action:
+                  - application-autoscaling:*
+                  - cloudwatch:DescribeAlarms
+                  - cloudwatch:PutMetricAlarm
+                  - ecs:DescribeServices
+                  - ecs:UpdateService
+                Resource: '*'
 
 # These are the values output by the CloudFormation template. Be careful
 # about changing any of them, because of them are exported with specific
@@ -492,4 +635,29 @@ Outputs:
     Value: !Ref 'FargateContainerSecurityGroup'
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'FargateContainerSecurityGroup' ] ]
+  DeploymentBucket:
+    Description: CodeBuild Bucket for Artifacts
+    Value: !Ref 'DeploymentBucket'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DeploymentBucket' ] ]
+  EcsImageRepositoryUri:
+    Description: CodeBuild Bucket for Artifacts
+    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsImageRepository}"
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EcsImageRepositoryUri' ] ]
+  CodePipelineServiceRole:
+    Description: Service Role for CodePipeline
+    Value: !GetAtt CodePipelineServiceRole.Arn
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'CodePipelineServiceRole' ] ]
+  CodeBuildServiceRole:
+    Description: Service Role for CodeBuild
+    Value: !Ref CodeBuildServiceRole
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'CodeBuildServiceRole' ] ]
+  ServiceAutoScalingRole:
+    Description: Service Role for AutoScaling
+    Value: !GetAtt ServiceAutoScalingRole.Arn
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'ServiceAutoScalingRole' ] ]
 ...
