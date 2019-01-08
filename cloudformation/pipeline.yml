@@ -1,0 +1,181 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Deploy a Public service on AWS Fargate
+
+Parameters:
+
+  ECSStackName:
+    Type: String
+    Description: The name of the parent Fargate networking stack that you created. Necessary
+                 to locate and reference resources created by that stack.
+
+  ServiceName:
+    Type: String
+    Default: nginx
+    Description: A name for the service
+
+  GitHubUser:
+    Type: String
+    Description: Your username on GitHub.
+
+  GitHubRepo:
+    Type: String
+    Default: ecs-demo-php-simple-app
+    Description: The repo name of the sample service.
+
+  GitHubBranch:
+    Type: String
+    Default: master
+    Description: The branch of the repo to continuously deploy.
+
+  GitHubToken:
+    Type: String
+    NoEcho: true
+    Description: >
+      Token for the user specified above. (https://github.com/settings/tokens)
+
+  ImageFile:
+    Type: String
+    Default: imagedefinitions.json
+    Description: File containing build artifacts info
+
+Resources:
+
+  EcsImageRepository:
+    Type: AWS::ECR::Repository
+    Properties: 
+      RepositoryName: !Sub '${ServiceName}-repository'
+      RepositoryPolicyText: 
+        Version: "2012-10-17"
+        Statement: 
+          - 
+            Sid: AllowPushPull
+            Effect: Allow
+            Principal: "*"
+            Action: 
+              - "ecr:GetDownloadUrlForLayer"
+              - "ecr:BatchGetImage"
+              - "ecr:BatchCheckLayerAvailability"
+              - "ecr:PutImage"
+              - "ecr:InitiateLayerUpload"
+              - "ecr:UploadLayerPart"
+              - "ecr:CompleteLayerUpload"
+
+  CodeBuildProject:
+    Type: AWS::CodeBuild::Project
+    Properties:
+      Artifacts:
+        Type: CODEPIPELINE
+      Source:
+        Type: CODEPIPELINE
+        BuildSpec: |
+          version: 0.2
+          phases:
+            pre_build:
+              commands:
+                - echo Logging in to Amazon ECR...
+                - $(aws ecr get-login --no-include-email --region ${AWS_DEFAULT_REGION})
+                - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+                - IMAGE_TAG=${COMMIT_HASH:=latest}
+            build:
+              commands:
+                - echo Build started on `date`
+                - echo Building the Docker image...
+                - docker build -t ${REPOSITORY_URI}:latest .
+                - docker tag ${REPOSITORY_URI}:latest ${REPOSITORY_URI}:$IMAGE_TAG
+            post_build:
+              commands:
+                - echo Build completed on `date`
+                - echo Pushing the Docker images...
+                - docker push ${REPOSITORY_URI}:latest
+                - docker push ${REPOSITORY_URI}:$IMAGE_TAG
+                - echo Writing image definitions file...
+                - printf '[{"name":"%s"' ${SERVICE_NAME} > ${IMAGE_FILE}; printf ',"imageUri":"%s"}]' ${REPOSITORY_URI}:${IMAGE_TAG} >> ${IMAGE_FILE}
+          artifacts:
+            files: ${IMAGE_FILE}
+      Environment:
+        ComputeType: BUILD_GENERAL1_SMALL
+        Image: aws/codebuild/docker:17.09.0
+        Type: LINUX_CONTAINER
+        EnvironmentVariables:
+          - Name: AWS_DEFAULT_REGION
+            Value: !Ref AWS::Region
+          - Name: REPOSITORY_URI
+            Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsImageRepository}"
+          - Name: IMAGE_FILE
+            Value: !Ref ImageFile
+          - Name: SERVICE_NAME
+            Value: !Sub ${ServiceName}-app
+      Name: !Ref AWS::StackName 
+      ServiceRole: 
+        Fn::ImportValue:
+          !Join [':', [!Ref 'ECSStackName', 'CodeBuildServiceRole']]
+
+  Pipeline:
+    Type: AWS::CodePipeline::Pipeline
+    Properties:
+      RoleArn:
+        Fn::ImportValue:
+          !Join [':', [!Ref 'ECSStackName', 'CodePipelineServiceRole']]
+      ArtifactStore:
+        Type: S3
+        Location: 
+          Fn::ImportValue:
+            !Join [':', [!Ref 'ECSStackName', 'DeploymentBucket']]
+      Stages:
+        - Name: Source
+          Actions:
+            - Name: App
+              ActionTypeId:
+                Category: Source
+                Owner: ThirdParty
+                Version: 1
+                Provider: GitHub
+              Configuration:
+                Owner: !Ref GitHubUser
+                Repo: !Ref GitHubRepo
+                Branch: !Ref GitHubBranch
+                OAuthToken: !Ref GitHubToken
+              OutputArtifacts:
+                - Name: App
+              RunOrder: 1
+        - Name: Build
+          Actions:
+            - Name: Build
+              ActionTypeId:
+                Category: Build
+                Owner: AWS
+                Version: 1
+                Provider: CodeBuild
+              Configuration:
+                ProjectName: !Ref CodeBuildProject
+              InputArtifacts:
+                - Name: App
+              OutputArtifacts:
+                - Name: AppBuild
+              RunOrder: 1
+        - Name: Deploy
+          Actions:
+            - Name: Deploy
+              ActionTypeId:
+                Category: Deploy
+                Owner: AWS
+                Version: 1
+                Provider: ECS
+              Configuration:
+                ClusterName:
+                  Fn::ImportValue:
+                    !Join [':', [!Ref 'ECSStackName', 'ClusterName']]
+                ServiceName: !Sub ${ServiceName}-service
+                FileName: !Ref ImageFile
+              InputArtifacts:
+                - Name: AppBuild
+              RunOrder: 1
+
+Outputs:
+  EcsImageRepository:
+    Description: The name of the ECS cluster
+    Value: !Ref 'EcsImageRepository'
+    Export:
+      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EcsImageRepository' ] ]
+...

@@ -495,26 +495,6 @@ Resources:
                   - codebuild:BatchGetBuilds
                   - iam:PassRole
 
-  EcsImageRepository:
-    Type: AWS::ECR::Repository
-    Properties: 
-      RepositoryName: "test-repository"
-      RepositoryPolicyText: 
-        Version: "2012-10-17"
-        Statement: 
-          - 
-            Sid: AllowPushPull
-            Effect: Allow
-            Principal: "*"
-            Action: 
-              - "ecr:GetDownloadUrlForLayer"
-              - "ecr:BatchGetImage"
-              - "ecr:BatchCheckLayerAvailability"
-              - "ecr:PutImage"
-              - "ecr:InitiateLayerUpload"
-              - "ecr:UploadLayerPart"
-              - "ecr:CompleteLayerUpload"
-
   DeploymentBucket:
     Type: AWS::S3::Bucket
     Properties:
@@ -640,11 +620,6 @@ Outputs:
     Value: !Ref 'DeploymentBucket'
     Export:
       Name: !Join [ ':', [ !Ref 'AWS::StackName', 'DeploymentBucket' ] ]
-  EcsImageRepositoryUri:
-    Description: CodeBuild Bucket for Artifacts
-    Value: !Sub "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${EcsImageRepository}"
-    Export:
-      Name: !Join [ ':', [ !Ref 'AWS::StackName', 'EcsImageRepositoryUri' ] ]
   CodePipelineServiceRole:
     Description: Service Role for CodePipeline
     Value: !GetAtt CodePipelineServiceRole.Arn
