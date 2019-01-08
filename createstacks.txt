@@ -5,21 +5,21 @@ aws cloudformation create-stack --stack-name ecsteststack --template-body file:/
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE PIPELINE
 
-aws cloudformation create-stack --stack-name seandemo-ci --template-body file://cloudformation/pipeline.yml --capabilities CAPABILITY_IAM --parameters `
+aws cloudformation create-stack --stack-name demosite-ci --template-body file://cloudformation/pipeline.yml --capabilities CAPABILITY_IAM --parameters `
 ParameterKey=ECSStackName,ParameterValue="ecsteststack" `
 ParameterKey=GitHubUser,ParameterValue="seankbeard" `
 ParameterKey=GitHubRepo,ParameterValue="docker-sample" `
 ParameterKey=GitHubBranch,ParameterValue="master" `
-ParameterKey=GitHubToken,ParameterValue="768f3f986aec159f07e2f2078b296cc44e719aa6" `
-ParameterKey=ServiceName,ParameterValue=seandemo 
+ParameterKey=GitHubToken,ParameterValue="***" `
+ParameterKey=ServiceName,ParameterValue=demosite 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE SERVICE
 
-aws cloudformation create-stack --stack-name seandemo-service --template-body file://cloudformation/service.yml --capabilities CAPABILITY_IAM --parameters `
+aws cloudformation create-stack --stack-name demosite-service --template-body file://cloudformation/service.yml --capabilities CAPABILITY_IAM --parameters `
 ParameterKey=ECSStackName,ParameterValue="ecsteststack" `
-ParameterKey=PipeLine,ParameterValue=seandemo-ci `
-ParameterKey=ServiceName,ParameterValue=seandemo `
+ParameterKey=PipeLine,ParameterValue=demosite-ci `
+ParameterKey=ServiceName,ParameterValue=demosite `
 ParameterKey=Path,ParameterValue="/webdemo/*" `
 ParameterKey=PathHealthCheck,ParameterValue="/webdemo/index.html" `
 ParameterKey=Priority,ParameterValue=1 `
