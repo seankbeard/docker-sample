@@ -133,8 +133,8 @@ Resources:
       #     - !Ref "AWS::NoValue"
       ContainerDefinitions:
         - Name: !Sub ${ServiceName}-app
-          #Cpu: !Ref 'ContainerCpu'
-          #Memory: !Ref 'ContainerMemory'
+          Cpu: !Ref 'ContainerCpu'
+          Memory: !Ref 'ContainerMemory'
           Essential: true
           Image: !Join
             - ''

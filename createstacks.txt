@@ -5,21 +5,21 @@ aws cloudformation create-stack --stack-name ecsteststack --template-body file:/
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE PIPELINE
 
-aws cloudformation create-stack --stack-name demosite-ci --template-body file://cloudformation/pipeline.yml --capabilities CAPABILITY_IAM --parameters `
+aws cloudformation create-stack --stack-name demowebsite-ci --template-body file://cloudformation/pipeline.yml --capabilities CAPABILITY_IAM --parameters `
 ParameterKey=ECSStackName,ParameterValue="ecsteststack" `
-ParameterKey=GitHubUser,ParameterValue="seankbeard" `
-ParameterKey=GitHubRepo,ParameterValue="docker-sample" `
-ParameterKey=GitHubBranch,ParameterValue="master" `
-ParameterKey=GitHubToken,ParameterValue="***" `
-ParameterKey=ServiceName,ParameterValue=demosite 
+ParameterKey=GitHubUser,ParameterValue="<user>" `
+ParameterKey=GitHubRepo,ParameterValue="<repo name>" `
+ParameterKey=GitHubBranch,ParameterValue="<branch>" `
+ParameterKey=GitHubToken,ParameterValue="<git token> `
+ParameterKey=ServiceName,ParameterValue=demowebsite 
 
 ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE SERVICE
 
-aws cloudformation create-stack --stack-name demosite-service --template-body file://cloudformation/service.yml --capabilities CAPABILITY_IAM --parameters `
+aws cloudformation create-stack --stack-name demowebsite-service --template-body file://cloudformation/service.yml --capabilities CAPABILITY_IAM --parameters `
 ParameterKey=ECSStackName,ParameterValue="ecsteststack" `
-ParameterKey=PipeLine,ParameterValue=demosite-ci `
-ParameterKey=ServiceName,ParameterValue=demosite `
+ParameterKey=PipeLine,ParameterValue=demowebsite-ci `
+ParameterKey=ServiceName,ParameterValue=demowebsite `
 ParameterKey=Path,ParameterValue="/webdemo/*" `
 ParameterKey=PathHealthCheck,ParameterValue="/webdemo/index.html" `
 ParameterKey=Priority,ParameterValue=1 `
